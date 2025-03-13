@@ -4,7 +4,7 @@ all: clean lint test
 
 .PHONY: lint
 lint: ## Run linter
-	go tool github.com/golangci/golangci-lint/cmd/golangci-lint run ./...
+	go tool github.com/golangci/golangci-lint/cmd/golangci-lint run --timeout=15m ./...
 
 .PHONY: test
 test: ## Run tests
