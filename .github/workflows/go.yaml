@@ -9,6 +9,14 @@ on:
   push:
     branches:
       - main
+  release:
+    types:
+      - published
+
+env:
+  IS_PR: ${{github.event_name == 'pull_request' || ''}}
+  IS_MAIN: ${{github.event_name == 'push' || ''}}
+  IS_RELEASE: ${{github.event_name == 'release' || ''}}
 
 jobs:
   build:
@@ -16,8 +24,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/cache/restore@v4
+        with:
+          key: ${{ runner.os }}-go-cache
+          path: |
+            ~/.magefile
+            ~/.cache/golangci-lint
+            ~/.cache/go-build
+            ~/go/pkg/mod
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install dependencies
+        run: go mod download
 
       - name: Lint
         run: make lint
@@ -37,3 +59,13 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./junit.xml
+
+      - uses: actions/cache/save@v4
+        if: ${{ env.IS_MAIN }}
+        with:
+          key: ${{ runner.os }}-go-cache
+          path: |
+            ~/.magefile
+            ~/.cache/golangci-lint
+            ~/.cache/go-build
+            ~/go/pkg/mod
