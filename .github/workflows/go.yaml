@@ -19,13 +19,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
 
-      - name: Download dependencies
-        run: go mod download
+      - name: Lint
+        run: make lint
 
       - name: Test
-        env:
-          GOTESTSUM_JUNITFILE: junit.xml
-        run: make
+        run: make test
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4
