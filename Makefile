@@ -1,9 +1,15 @@
 .PHONY: test clean
 
-all: test
+all: clean lint test
 
-test: clean
-	go tool gotest.tools/gotestsum -- -coverprofile=coverage.txt ./...
+.PHONY: lint
+lint: ## Run linter
+	go tool github.com/golangci/golangci-lint/cmd/golangci-lint run ./...
 
-clean:
+.PHONY: test
+test: ## Run tests
+	go tool gotest.tools/gotestsum --junitfile=junit.xml -- -race -covermode=atomic -coverprofile=coverage.txt ./...
+
+.PHONY: clean
+clean: ## Clean files
 	git clean -Xdf
