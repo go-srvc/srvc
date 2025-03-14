@@ -110,22 +110,15 @@ func run(modules ...Module) error {
 	<-ctx.Done()
 
 	slog.Info("stopping modules")
+	var stopErr error
 	for i := len(modules) - 1; i >= 0; i-- {
 		mod := modules[i]
-		closed := make(chan struct{})
-		wg.Go(func() error {
-			defer func() {
-				close(closed)
-				slog.Info("module stopped", slog.String("name", mod.ID()))
-			}()
-
-			slog.Info("module stopping", slog.String("name", mod.ID()))
-			return catchPanic(mod.Stop)
-		})
-		<-closed
+		slog.Info("module stopping", slog.String("name", mod.ID()))
+		stopErr = JoinErrors(stopErr, catchPanic(mod.Stop))
+		slog.Info("module stopped", slog.String("name", mod.ID()))
 	}
 
-	return wg.Wait()
+	return JoinErrors(wg.Wait(), stopErr)
 }
 
 func catchPanic(fn func() error) (err error) {
