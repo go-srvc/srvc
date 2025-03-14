@@ -5,9 +5,9 @@ import (
 	"sync"
 )
 
-// Join allows overwriting the default errors.Join function used by srvc package.
+// JoinErrors allows overwriting the default errors.JoinErrors function used by srvc package.
 // This can be useful for custom multi error formatting.
-var Join = errors.Join
+var JoinErrors = errors.Join
 
 // ErrStr adds Error method to string type.
 type ErrStr string
@@ -29,7 +29,7 @@ func (eg *ErrGroup) Go(f func() error) {
 		defer eg.wg.Done()
 		if err := f(); err != nil {
 			eg.mutex.Lock()
-			eg.err = Join(eg.err, err)
+			eg.err = JoinErrors(eg.err, err)
 			eg.mutex.Unlock()
 		}
 	}()
