@@ -2,11 +2,99 @@
 
 # Simple, Safe, and Modular Service Runner
 
-srvc library provides a simple but powerful interface with zero external dependencies for running service modules.
+srvc library provides a simple but powerful interface with zero external dependencies for running service [modules](https://github.com/go-srvc/mods).
 
 ## Use Case
 
 Usually, Go services are composed of multiple "modules" which runs each in their own goroutine such as http server, signal listener, kafka consumer, ticker, etc. These modules should remain alive throughout the lifecycle of the whole service, and if one goes down, gracefully exit should be executed to avoid "zombie" services. srvc takes care of all this via a simple module interface.
+List of ready made modules can be found under [github.com/go-srvc/mods](https://github.com/go-srvc/mods)
+
+## Usage
+
+### Basic main usage:
+
+```go
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+
+	"github.com/go-srvc/mods/httpmod"
+	"github.com/go-srvc/mods/logmod"
+	"github.com/go-srvc/mods/metermod"
+	"github.com/go-srvc/mods/sigmod"
+	"github.com/go-srvc/mods/sqlxmod"
+	"github.com/go-srvc/mods/tracemod"
+	"github.com/go-srvc/srvc"
+)
+
+func main() {
+	db := sqlxmod.New()
+	srvc.RunAndExit(
+		sigmod.New(os.Interrupt),
+		logmod.New(),
+		tracemod.New(),
+		metermod.New(),
+		db,
+		httpmod.New(
+			httpmod.WithHandler(
+				handler(db),
+			),
+		),
+	)
+}
+
+func handler(db *sqlxmod.DB) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := db.DB().PingContext(r.Context()); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprint(w, "OK")
+	})
+}
+```
+
+### Implementing custom modules
+
+```go
+package main
+
+import (
+	"github.com/go-srvc/srvc"
+)
+
+type MyMod struct {
+	done chan struct{}
+}
+
+func (m *MyMod) Init() error {
+	m.done = make(chan struct{})
+	return nil
+}
+
+// Run should block until the module is stopped.
+// If you don't have a blocking operation, you can use done channel to block.
+func (m *MyMod) Run() error {
+	<-m.done
+	return nil
+}
+
+func (m *MyMod) Stop() error {
+	defer close(m.done)
+	return nil
+}
+
+func (m *MyMod) ID() string { return "MyMod" }
+
+func main() {
+	srvc.RunAndExit(
+		&MyMod{},
+	)
+}
+```
 
 ## Acknowledgements
 
