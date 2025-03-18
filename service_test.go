@@ -37,6 +37,11 @@ func TestRun(t *testing.T) {
 			expectedErr: errInit,
 		},
 		{
+			name:        "InitError_and_StopError_Different_Modules",
+			mods:        []srvc.Module{StopErrMod(), InitErrMod()},
+			expectedErr: errStop,
+		},
+		{
 			name:        "RunError",
 			mods:        []srvc.Module{RunErrMod()},
 			expectedErr: errRun,
@@ -139,6 +144,14 @@ func RunPanicMod() srvc.Module {
 func StopErrMod() srvc.Module {
 	return &TestMod{
 		init: func() error { return nil },
+		run:  func() error { return nil },
+		stop: func() error { return errStop },
+	}
+}
+
+func InitStopErrMod() srvc.Module {
+	return &TestMod{
+		init: func() error { return errInit },
 		run:  func() error { return nil },
 		stop: func() error { return errStop },
 	}
