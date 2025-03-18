@@ -62,9 +62,11 @@ func handler(db *sqlxmod.DB) http.Handler {
 ```go
 package main
 
-import (
-	"github.com/go-srvc/srvc"
-)
+import "github.com/go-srvc/srvc"
+
+func main() {
+	srvc.RunAndExit(&MyMod{})
+}
 
 type MyMod struct {
 	done chan struct{}
@@ -88,12 +90,6 @@ func (m *MyMod) Stop() error {
 }
 
 func (m *MyMod) ID() string { return "MyMod" }
-
-func main() {
-	srvc.RunAndExit(
-		&MyMod{},
-	)
-}
 ```
 
 ## Acknowledgements
