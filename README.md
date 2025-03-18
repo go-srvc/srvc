@@ -6,12 +6,13 @@ srvc library provides a simple but powerful interface with zero external depende
 
 ## Use Case
 
-Usually, Go services are composed of multiple "modules" which runs each in their own goroutine such as http server, signal listener, kafka consumer, ticker, etc. These modules should remain alive throughout the lifecycle of the whole service, and if one goes down, gracefully exit should be executed to avoid "zombie" services. srvc takes care of all this via a simple module interface.
+Normally Go services are composed of multiple "modules" which each run in their own goroutine such as http server, signal listener, kafka consumer, ticker, etc. These modules should remain alive throughout the lifecycle of the whole service, and if one goes down, graceful exit should be executed to avoid "zombie" services. srvc takes care of all this via a simple module interface.
+
 List of ready made modules can be found under [github.com/go-srvc/mods](https://github.com/go-srvc/mods)
 
 ## Usage
 
-### Basic main usage:
+### Main package
 
 ```go
 package main
@@ -19,7 +20,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/go-srvc/mods/httpmod"
 	"github.com/go-srvc/mods/logmod"
@@ -33,15 +33,14 @@ import (
 func main() {
 	db := sqlxmod.New()
 	srvc.RunAndExit(
-		sigmod.New(os.Interrupt),
 		logmod.New(),
+		sigmod.New(),
 		tracemod.New(),
 		metermod.New(),
 		db,
 		httpmod.New(
-			httpmod.WithHandler(
-				handler(db),
-			),
+			httpmod.WithAddr(":8080"),
+			httpmod.WithHandler(handler(db)),
 		),
 	)
 }
