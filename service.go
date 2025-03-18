@@ -74,22 +74,45 @@ func run(modules ...Module) error {
 		return nil
 	}
 
+	wg := &ErrGroup{}
+	initialized, initErr := initialize(modules...)
+	if initErr == nil {
+		execute(wg, initialized...)
+	}
+
+	slog.Info("stopping modules")
+	var stopErr error
+	for i := len(initialized) - 1; i >= 0; i-- {
+		mod := initialized[i]
+		slog.Info("module stopping", slog.String("name", mod.ID()))
+		stopErr = JoinErrors(stopErr, catchPanic(mod.Stop))
+		slog.Info("module stopped", slog.String("name", mod.ID()))
+	}
+
+	return JoinErrors(initErr, wg.Wait(), stopErr)
+}
+
+func initialize(modules ...Module) ([]Module, error) {
 	slog.Info("initializing modules")
+	initialized := make([]Module, 0, len(modules))
 	for _, mod := range modules {
 		slog.Info("module initializing", slog.String("name", mod.ID()))
 		err := catchPanic(mod.Init)
 		if err != nil {
-			return fmt.Errorf("failed to initialize module %s: %w", mod.ID(), err)
+			return initialized, fmt.Errorf("failed to initialize module %s: %w", mod.ID(), err)
 		}
+		initialized = append(initialized, mod)
 		slog.Info("module initialized", slog.String("name", mod.ID()))
 	}
 	slog.Info("all modules initialized successfully")
+	return initialized, nil
+}
 
+func execute(wg *ErrGroup, modules ...Module) {
 	slog.Info("starting modules")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	wg := ErrGroup{}
 	for _, mod := range modules {
 		wg.Go(func() error {
 			defer func() {
@@ -108,17 +131,6 @@ func run(modules ...Module) error {
 	}
 
 	<-ctx.Done()
-
-	slog.Info("stopping modules")
-	var stopErr error
-	for i := len(modules) - 1; i >= 0; i-- {
-		mod := modules[i]
-		slog.Info("module stopping", slog.String("name", mod.ID()))
-		stopErr = JoinErrors(stopErr, catchPanic(mod.Stop))
-		slog.Info("module stopped", slog.String("name", mod.ID()))
-	}
-
-	return JoinErrors(wg.Wait(), stopErr)
 }
 
 func catchPanic(fn func() error) (err error) {
