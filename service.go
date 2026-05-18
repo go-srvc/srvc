@@ -85,7 +85,9 @@ func run(modules ...Module) error {
 	for i := len(initialized) - 1; i >= 0; i-- {
 		mod := initialized[i]
 		slog.Info("module stopping", slog.String("name", mod.ID()))
-		stopErr = JoinErrors(stopErr, catchPanic(mod.Stop))
+		if err := catchPanic(mod.Stop); err != nil {
+			stopErr = JoinErrors(stopErr, fmt.Errorf("failed to stop module %s: %w", mod.ID(), err))
+		}
 		slog.Info("module stopped", slog.String("name", mod.ID()))
 	}
 
