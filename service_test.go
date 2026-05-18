@@ -93,6 +93,31 @@ func TestRun_NoModules(t *testing.T) {
 	}
 }
 
+func TestRun_StopTimeout(t *testing.T) {
+	srvc.StopTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { srvc.StopTimeout = 0 })
+
+	hang := make(chan struct{})
+	t.Cleanup(func() { close(hang) })
+
+	mod := &TestMod{
+		init: func() error { return nil },
+		run:  func() error { <-hang; return nil },
+		stop: func() error { <-hang; return nil },
+	}
+
+	stopMod, stop := StopMod()
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		stop()
+	}()
+
+	err := srvc.Run(mod, stopMod)
+	if !errors.Is(err, srvc.ErrStopTimeout) {
+		t.Errorf("expected ErrStopTimeout, got %v", err)
+	}
+}
+
 // StopMod can be used to trigger stop sequence for srvc.Run in tests.
 func StopMod() (srvc.Module, func()) {
 	ctx, stop := context.WithCancel(context.Background())
