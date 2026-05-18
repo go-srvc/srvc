@@ -136,8 +136,10 @@ func execute(wg *ErrGroup, modules ...Module) {
 func catchPanic(fn func() error) (err error) {
 	defer func() {
 		if rErr := recover(); rErr != nil {
-			// Print stack trace to log without logger to preserver proper multiline formatting.
-			fmt.Println(string(debug.Stack()))
+			slog.Error("module panic recovered",
+				slog.Any("panic", rErr),
+				slog.String("stack", string(debug.Stack())),
+			)
 			err = fmt.Errorf("%w: %s", ErrModulePanic, rErr)
 		}
 	}()
