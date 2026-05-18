@@ -1,6 +1,6 @@
 module github.com/go-srvc/srvc
 
-go 1.24.1
+go 1.26.0
 
 tool (
 	github.com/golangci/golangci-lint/cmd/golangci-lint
