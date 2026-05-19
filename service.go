@@ -22,8 +22,8 @@ type Module interface {
 	Init() error
 	// Run should start the module and block until stop is called or error occurs.
 	Run() error
-	// Stop allows synchronous cleanup of module should make Run() return eventually.
-	// If Init was called then Stop is guaranteed to be called as part of cleanup.
+	// Stop is called for synchronous cleanup and must cause Run to return.
+	// If Init ran, Stop is guaranteed to run as part of cleanup.
 	Stop() error
 }
 
@@ -38,8 +38,8 @@ type Module interface {
 //  5. Wait for all Run() goroutines to return.
 //  6. Return all errors or nil
 //
-// Possible panics inside modules are captured to allow graceful shutdown of other modules.
-// Captured panics are converted into errors and ErrPanic is returned.
+// Panics inside modules are recovered so other modules can shut down gracefully.
+// Recovered panics are returned as errors wrapping ErrModulePanic.
 func Run(modules ...Module) error {
 	slog.Info("starting service")
 	if err := run(modules...); err != nil {
