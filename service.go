@@ -117,17 +117,16 @@ func execute(wg *ErrGroup, modules ...Module) {
 
 	for _, mod := range modules {
 		wg.Go(func() error {
-			defer func() {
-				slog.Info("module exited", slog.String("name", mod.ID()))
-				cancel()
-			}()
+			defer cancel()
 
 			slog.Info("module started", slog.String("name", mod.ID()))
 			err := catchPanic(mod.Run)
 			if err != nil {
+				slog.Error("module exited with error", slog.String("name", mod.ID()), slog.Any("error", err))
 				return fmt.Errorf("failed to run module %s: %w", mod.ID(), err)
 			}
 
+			slog.Info("module exited", slog.String("name", mod.ID()))
 			return nil
 		})
 	}
