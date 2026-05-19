@@ -91,6 +91,29 @@ func (m *MyMod) Stop() error {
 func (m *MyMod) ID() string { return "MyMod" }
 ```
 
+## Lifecycle
+
+`Run` executes modules through a deterministic lifecycle:
+
+1. **Init** is called sequentially in the order modules are passed. If any `Init` returns an error, the loop stops and `Stop` is called on already-initialized modules in reverse order. Uninitialized modules never get `Init` *or* `Stop`.
+2. **Run** is started for each successfully initialized module in its own goroutine. Start order is not guaranteed.
+3. When the first `Run` returns (with or without error), the service moves to shutdown.
+4. **Stop** is called sequentially in **reverse** order on every initialized module. Each module's `Stop` must cause its `Run` to return.
+5. `Run` blocks until every `Run` goroutine has returned, then returns the joined errors from `Init`, `Run`, and `Stop` (or `nil`).
+
+### Panic recovery
+
+Panics inside `Init`, `Run`, or `Stop` are recovered. The stack trace is logged, and the panic is converted into an error wrapping `srvc.ErrModulePanic` so other modules can still shut down gracefully.
+
+### Exit behaviour
+
+`RunAndExit` calls `os.Exit(1)` if `Run` returns any error, and returns normally on success.
+
+### Contracts modules must uphold
+
+- `Stop` must make `Run` return. If `Run` ignores `Stop`, `srvc.Run` will block in its final wait. There is no built-in shutdown timeout, so a stuck module hangs the service.
+- `ID` should return a stable, unique identifier used for log attribution.
+
 ## Acknowledgements
 
 This library is something I have found myself writing over and over again in every project I been part of. One of the iterations can be found under [https://github.com/elisasre/go-common](https://github.com/elisasre/go-common).
