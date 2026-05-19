@@ -5,8 +5,8 @@ import (
 	"sync"
 )
 
-// JoinErrors allows overwriting the default errors.JoinErrors function used by srvc package.
-// This can be useful for custom multi error formatting.
+// JoinErrors is used by srvc to combine multiple errors into one.
+// Override it to plug in custom multi-error formatting.
 var JoinErrors = errors.Join
 
 // ErrStr adds Error method to string type.
