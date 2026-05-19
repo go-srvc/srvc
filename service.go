@@ -8,9 +8,22 @@ import (
 	"log/slog"
 	"os"
 	"runtime/debug"
+	"time"
 )
 
-const ErrModulePanic = ErrStr("module recovered from panic")
+const (
+	ErrModulePanic = ErrStr("module recovered from panic")
+	ErrStopTimeout = ErrStr("service stop timed out")
+)
+
+// StopTimeout, if greater than zero, bounds the time srvc.Run will wait
+// for the Stop sequence (and the remaining Run goroutines) to complete
+// after the first Run returns. On timeout, Run returns ErrStopTimeout
+// immediately. Remaining Stop/Run goroutines are detached and may leak,
+// so use RunAndExit to ensure the process exits in that case.
+//
+// Zero (the default) preserves the previous unbounded behavior.
+var StopTimeout time.Duration
 
 // exitFn allows patching the os.Exit function for testing purposes.
 var exitFn = os.Exit
@@ -80,6 +93,27 @@ func run(modules ...Module) error {
 		execute(wg, initialized...)
 	}
 
+	return JoinErrors(initErr, shutdown(wg, initialized))
+}
+
+func shutdown(wg *ErrGroup, initialized []Module) error {
+	if StopTimeout <= 0 {
+		return runShutdown(wg, initialized)
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- runShutdown(wg, initialized) }()
+
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(StopTimeout):
+		slog.Error("service stop timed out", slog.Duration("timeout", StopTimeout))
+		return ErrStopTimeout
+	}
+}
+
+func runShutdown(wg *ErrGroup, initialized []Module) error {
 	slog.Info("stopping modules")
 	var stopErr error
 	for i := len(initialized) - 1; i >= 0; i-- {
@@ -90,8 +124,7 @@ func run(modules ...Module) error {
 		}
 		slog.Info("module stopped", slog.String("name", mod.ID()))
 	}
-
-	return JoinErrors(initErr, wg.Wait(), stopErr)
+	return JoinErrors(wg.Wait(), stopErr)
 }
 
 func initialize(modules ...Module) ([]Module, error) {
