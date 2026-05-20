@@ -114,6 +114,10 @@ Panics inside `Init`, `Run`, or `Stop` are recovered. The stack trace is logged,
 - `Stop` must make `Run` return. If `Run` ignores `Stop`, `srvc.Run` will block in its final wait. There is no built-in shutdown timeout, so a stuck module hangs the service.
 - `ID` should return a stable, unique identifier used for log attribution.
 
+### Why no context.Context on lifecycle methods?
+
+`Init`, `Run`, and `Stop` deliberately take no `context.Context`. Shutdown deadlines are already enforced by the platform the service runs on (Kubernetes `terminationGracePeriodSeconds`, systemd `TimeoutStopSec`, ECS `stopTimeout`), and a Go-side deadline cannot extend past the platform `SIGKILL`. Adding context plumbing to the interface would expand the surface without giving modules any extra safety. Modules that need a startup or shutdown budget for their own internal calls can take a context via their own options without changing `Module`.
+
 ## Acknowledgements
 
 This library is something I have found myself writing over and over again in every project I been part of. One of the iterations can be found under [https://github.com/elisasre/go-common](https://github.com/elisasre/go-common).
