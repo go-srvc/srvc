@@ -1,0 +1,45 @@
+name: Update deps
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BOT_TOKEN }}
+
+      - id: go
+        run: echo "version=$(curl -fsSL 'https://go.dev/dl/?mode=json' | jq -r '[.[] | select(.stable)] | .[0].version | sub("^go"; "")')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.go.outputs.version }}
+
+      - name: Update Go, tools, and deps
+        run: make update-deps GO_VERSION=${{ steps.go.outputs.version }}
+
+      - name: Open PR if changes
+        env:
+          GH_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          if git diff --quiet; then
+            echo "no changes"
+            exit 0
+          fi
+          git config user.name "go-srvc-bot"
+          git config user.email "go-srvc-bot@users.noreply.github.com"
+          git checkout -B update-deps
+          git add -A
+          git commit -m "Update Go, tools, and deps"
+          git push -f origin update-deps
+          gh pr view update-deps --json state -q .state 2>/dev/null | grep -q OPEN || \
+            gh pr create --title "Update Go, tools, and deps" --body "Weekly automated bump." --head update-deps --base main
