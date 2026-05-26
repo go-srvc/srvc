@@ -43,3 +43,4 @@ jobs:
           git push -f origin update-deps
           gh pr view update-deps --json state -q .state 2>/dev/null | grep -q OPEN || \
             gh pr create --title "Update Go, tools, and deps" --body "Weekly automated bump." --head update-deps --base main
+          gh pr merge update-deps --auto --squash
