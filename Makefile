@@ -15,8 +15,7 @@ test: ## Run tests
 .PHONY: update-deps
 update-deps: ## Update Go version, tools, and deps
 	go mod edit -go=${GO_VERSION}
-	pkgs=$$(go mod edit -json | jq -r '[(.Tool[]?.Path), (.Require[]? | select(.Indirect | not) | .Path)] | map(. + "@latest") | .[]'); \
-	  [ -z "$$pkgs" ] || go get $$pkgs
+	go get $$(go mod edit -json | jq -r '[(.Tool[]?.Path), (.Require[]? | select(.Indirect | not) | .Path)] | map(. + "@latest") | .[]')
 	go mod tidy
 
 .PHONY: clean
