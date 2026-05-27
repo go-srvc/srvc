@@ -1,0 +1,16 @@
+name: Trigger website
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: gh workflow run deploy.yml -R go-srvc/website
