@@ -68,3 +68,12 @@ jobs:
             ~/.cache/golangci-lint
             ~/.cache/go-build
             ~/go/pkg/mod
+
+  website:
+    if: ${{ github.event_name == 'release' }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: gh workflow run deploy.yml -R go-srvc/website
