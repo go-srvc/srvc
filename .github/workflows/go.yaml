@@ -118,6 +118,14 @@ jobs:
           [ -z "$tag" ] && exit 0
           git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null 2>&1 || git push origin "$tag"
 
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(git tag --points-at HEAD --list 'v*' | head -1)
+          [ -z "$tag" ] && exit 0
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --generate-notes
+
       - name: Trigger website Deploy
         env:
           GH_TOKEN: ${{ secrets.BOT_TOKEN }}
