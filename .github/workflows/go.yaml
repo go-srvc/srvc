@@ -9,16 +9,30 @@ on:
   push:
     branches:
       - main
-  release:
-    types:
-      - published
 
-env:
-  IS_PR: ${{github.event_name == 'pull_request' || ''}}
-  IS_MAIN: ${{github.event_name == 'push' || ''}}
-  IS_RELEASE: ${{github.event_name == 'release' || ''}}
+permissions:
+  contents: read
 
 jobs:
+  changed:
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - id: check
+        run: |
+          last=$(git tag --list 'v*' | sort -V | tail -1)
+          if [ -z "$last" ] || ! git diff --quiet "$last"..HEAD; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -41,8 +55,17 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
+      - name: Tidy check
+        run: make tidy-check
+
       - name: Lint
         run: make lint
+
+      - name: API check
+        run: make api-check
+
+      - name: Cross-compile
+        run: make cross-check
 
       - name: Test
         run: make test
@@ -61,10 +84,55 @@ jobs:
           files: ./junit.xml
 
       - uses: actions/cache/save@v4
-        if: ${{ env.IS_MAIN }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
           key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.sum') }}
           path: |
             ~/.cache/golangci-lint
             ~/.cache/go-build
             ~/go/pkg/mod
+
+  tag:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changed.outputs.has_changes == 'true' }}
+    needs:
+      - changed
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Tag
+        run: make tag
+
+      - name: Push tag
+        run: |
+          tag=$(git tag --points-at HEAD --list 'v*' | head -1)
+          [ -z "$tag" ] && exit 0
+          git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null 2>&1 || git push origin "$tag"
+
+      - name: Trigger website Deploy
+        env:
+          GH_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: gh workflow run deploy.yml -R go-srvc/website
+
+  ci:
+    needs:
+      - changed
+      - build
+      - tag
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify
+        run: |
+          [ "${{ needs.changed.result }}" = "success" ] || exit 1
+          case "${{ needs.build.result }}" in success|skipped) ;; *) exit 1 ;; esac
+          case "${{ needs.tag.result }}"   in success|skipped) ;; *) exit 1 ;; esac
