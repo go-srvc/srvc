@@ -109,25 +109,19 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Tag
-        run: make tag
-
       - id: tag
-        name: Resolve tag
-        run: echo "name=$(git tag --points-at HEAD --list 'v*' | head -1)" >> "$GITHUB_OUTPUT"
+        name: Tag
+        run: echo "name=$(make tag)" >> "$GITHUB_OUTPUT"
 
       - name: Push tag
-        if: steps.tag.outputs.name != ''
         run: git ls-remote --exit-code origin "refs/tags/${{ steps.tag.outputs.name }}" >/dev/null 2>&1 || git push origin "${{ steps.tag.outputs.name }}"
 
       - name: Create release
-        if: steps.tag.outputs.name != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release view "${{ steps.tag.outputs.name }}" >/dev/null 2>&1 || gh release create "${{ steps.tag.outputs.name }}" --generate-notes
 
       - name: Trigger website Deploy
-        if: steps.tag.outputs.name != ''
         env:
           GH_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: gh workflow run deploy.yml -R go-srvc/website
