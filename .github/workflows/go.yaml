@@ -70,7 +70,7 @@ jobs:
             ~/go/pkg/mod
 
   website:
-    if: ${{ github.event_name == 'release' }}
+    if: ${{ env.IS_RELEASE }}
     needs: build
     runs-on: ubuntu-latest
     steps:
