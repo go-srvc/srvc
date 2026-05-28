@@ -30,12 +30,12 @@ api-check: ## Fail on breaking API changes vs the latest tag
 	go tool gorelease -base=${BASE}
 
 .PHONY: tag
-tag: ## Tag commit using gorelease's suggested version
+tag: ## Tag commit using gorelease's suggested version; prints version on stdout
 	@v="v1.0.0"; if [ -n "${LAST_TAG}" ]; then \
 	  v=$$(go tool gorelease -base=${LAST_TAG} | tee /dev/stderr | awk '/^Suggested version:/ {print $$3; exit}'); \
 	  test -n "$$v" || { echo "gorelease did not suggest a version" >&2; exit 1; }; \
 	fi; \
-	git tag "$$v" && echo "tagged $$v"
+	git tag "$$v" >&2 && echo "$$v"
 
 .PHONY: update-deps
 update-deps: ## Update Go version, tools, and deps
