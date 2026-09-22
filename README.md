@@ -18,41 +18,41 @@ List of ready made modules can be found under [github.com/go-srvc/mods](https://
 package main
 
 import (
-	"fmt"
-	"net/http"
+ "fmt"
+ "net/http"
 
-	"github.com/go-srvc/mods/httpmod"
-	"github.com/go-srvc/mods/logmod"
-	"github.com/go-srvc/mods/metermod"
-	"github.com/go-srvc/mods/sigmod"
-	"github.com/go-srvc/mods/sqlxmod"
-	"github.com/go-srvc/mods/tracemod"
-	"github.com/go-srvc/srvc"
+ "github.com/go-srvc/mods/httpmod"
+ "github.com/go-srvc/mods/logmod"
+ "github.com/go-srvc/mods/metermod"
+ "github.com/go-srvc/mods/sigmod"
+ "github.com/go-srvc/mods/sqlxmod"
+ "github.com/go-srvc/mods/tracemod"
+ "github.com/go-srvc/srvc"
 )
 
 func main() {
-	db := sqlxmod.New()
-	srvc.RunAndExit(
-		logmod.New(),
-		sigmod.New(),
-		tracemod.New(),
-		metermod.New(),
-		db,
-		httpmod.New(
-			httpmod.WithAddr(":8080"),
-			httpmod.WithHandler(handler(db)),
-		),
-	)
+ db := sqlxmod.New()
+ srvc.RunAndExit(
+  logmod.New(),
+  sigmod.New(),
+  tracemod.New(),
+  metermod.New(),
+  db,
+  httpmod.New(
+   httpmod.WithAddr(":8080"),
+   httpmod.WithHandler(handler(db)),
+  ),
+ )
 }
 
 func handler(db *sqlxmod.DB) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := db.DB().PingContext(r.Context()); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		fmt.Fprint(w, "OK")
-	})
+ return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+  if err := db.DB().PingContext(r.Context()); err != nil {
+   http.Error(w, err.Error(), http.StatusInternalServerError)
+   return
+  }
+  fmt.Fprint(w, "OK")
+ })
 }
 ```
 
@@ -64,32 +64,55 @@ package main
 import "github.com/go-srvc/srvc"
 
 func main() {
-	srvc.RunAndExit(&MyMod{})
+ srvc.RunAndExit(&MyMod{})
 }
 
 type MyMod struct {
-	done chan struct{}
+ done chan struct{}
 }
 
 func (m *MyMod) Init() error {
-	m.done = make(chan struct{})
-	return nil
+ m.done = make(chan struct{})
+ return nil
 }
 
 // Run should block until the module is stopped.
 // If you don't have a blocking operation, you can use done channel to block.
 func (m *MyMod) Run() error {
-	<-m.done
-	return nil
+ <-m.done
+ return nil
 }
 
 func (m *MyMod) Stop() error {
-	defer close(m.done)
-	return nil
+ defer close(m.done)
+ return nil
 }
 
 func (m *MyMod) ID() string { return "MyMod" }
 ```
+
+### Function modules
+
+`InitMod`, `RunMod`, and `StopMod` wrap a single function into a module when only one method from interface is needed.
+
+```go
+package main
+
+import "github.com/go-srvc/srvc"
+
+func main() {
+ srvc.RunAndExit(
+  // Called during init, Run blocks until shutdown.
+  srvc.InitMod("migrations", runMigrations),
+  // Called during stop, in reverse order like any other module.
+  srvc.StopMod("flush", flushBuffers),
+  // Called during run, service shuts down once it returns.
+  srvc.RunMod("job", doWork),
+ )
+}
+```
+
+`RunMod` has no-op `Init` and `Stop`, so its function must return on its own; the other two block in `Run` until the service shuts down.
 
 ## Lifecycle
 
