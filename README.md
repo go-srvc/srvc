@@ -120,6 +120,17 @@ func main() {
 
 `RunMod` and `CtxMod` have no-op `Init`, and their function must return on its own for the service to shut down. `CtxMod` cancels the context passed to its function when `Stop` is called, so a function that respects the context returns on shutdown. `InitMod`, `StopMod`, and `IdleMod` have no work of their own during run, so their `Run` blocks until the service shuts down.
 
+### Optional modules
+
+`Optional` toggles a module with a flag. A disabled module is dropped before the init phase, so none of its `Init`, `Run`, or `Stop` functions are called, and its ID is logged as disabled. The module is still constructed by the caller, so keep heavy work in `Init`. A disabled module may be nil.
+
+```go
+srvc.RunAndExit(
+  srvc.IdleMod("db", openDB, closeDB),
+  srvc.Optional(cfg.MetricsEnabled, metrics.New()),
+)
+```
+
 ## Lifecycle
 
 `Run` executes modules through a deterministic lifecycle:
