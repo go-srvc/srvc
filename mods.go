@@ -1,6 +1,9 @@
 package srvc
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 // InitMod wraps initFn into a Module that calls initFn during the init phase.
 // Run blocks until the service shuts down and Stop is a no-op.
@@ -21,6 +24,27 @@ func RunMod(id string, runFn func() error) Module {
 // Useful for cleanup that should always run when the service exits.
 func StopMod(id string, stopFn func() error) Module {
 	return &fnMod{id: id, stop: stopFn, done: make(chan struct{})}
+}
+
+// CtxMod wraps runFn into a Module that calls runFn during the run phase with a
+// context that is canceled when Stop is called.
+// Init is a no-op and runFn must return once its context is done.
+// Useful for run loops that already take a context.
+func CtxMod(id string, runFn func(ctx context.Context) error) Module {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &fnMod{
+		id:   id,
+		run:  func() error { return runFn(ctx) },
+		stop: func() error { cancel(); return nil },
+		done: make(chan struct{}),
+	}
+}
+
+// IdleMod wraps initFn and stopFn into a Module that has no work of its own during the run phase.
+// Run blocks until the service shuts down and nil functions are no-ops.
+// Useful for resources that are set up on init and torn down on stop.
+func IdleMod(id string, initFn, stopFn func() error) Module {
+	return &fnMod{id: id, init: initFn, stop: stopFn, done: make(chan struct{})}
 }
 
 // fnMod implements Module for a single user given function.
