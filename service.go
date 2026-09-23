@@ -69,6 +69,7 @@ func RunAndExit(modules ...Module) {
 }
 
 func run(modules ...Module) error {
+	modules = dropDisabled(modules)
 	if len(modules) == 0 {
 		slog.Warn("no modules to run")
 		return nil
@@ -145,4 +146,35 @@ func catchPanic(fn func() error) (err error) {
 		}
 	}()
 	return fn()
+}
+
+// Optional returns m when enabled is true. Otherwise m is skipped before the
+// init phase, so none of its Init, Run or Stop functions are called.
+// m is still constructed by the caller, so keep heavy work in Init.
+// m may be nil when enabled is false.
+func Optional(enabled bool, m Module) Module {
+	if enabled {
+		return m
+	}
+	return &disabledMod{m}
+}
+
+type disabledMod struct {
+	Module
+}
+
+func dropDisabled(modules []Module) []Module {
+	mods := make([]Module, 0, len(modules))
+	for _, m := range modules {
+		if d, ok := m.(*disabledMod); ok {
+			name := "unknown"
+			if d.Module != nil {
+				name = d.ID()
+			}
+			slog.Info("module disabled", slog.String("name", name))
+			continue
+		}
+		mods = append(mods, m)
+	}
+	return mods
 }

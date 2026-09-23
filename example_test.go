@@ -16,3 +16,11 @@ func (m *printMod) Stop() error { return nil }
 func ExampleRun() {
 	_ = srvc.Run(&printMod{})
 }
+
+func ExampleOptional() {
+	metricsEnabled := false
+	_ = srvc.Run(
+		&printMod{},
+		srvc.Optional(metricsEnabled, srvc.IdleMod("metrics", nil, nil)),
+	)
+}
