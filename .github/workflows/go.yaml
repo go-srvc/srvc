@@ -35,6 +35,9 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -71,16 +74,17 @@ jobs:
         run: make test
 
       - name: Upload results to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
           files: ./coverage.txt
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
+        uses: codecov/codecov-action@v7
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
+          report_type: test_results
           files: ./junit.xml
 
       - uses: actions/cache/save@v4
